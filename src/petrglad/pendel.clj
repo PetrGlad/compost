@@ -7,10 +7,10 @@
 (def component-defaults
   {:requires #{}
    :status   :init
-   :start    identity
-   :stop     identity
-   :get      :value
-   :value    nil})
+   :start    (fn [co _deps] co)
+   :stop     (fn [co _deps] co)
+   :get      identity
+   :this     nil})
 
 (defn map-vals [f m]
   (reduce-kv (fn [m k v]
@@ -23,10 +23,10 @@
 
 (defn all-requires [system required-ids]
   (let [deps (map-vals #(-> % :requires (into #{})) system)]
-    (println "RESOLVE:" deps required-ids)
+    (println "Resolving" deps required-ids)
     (loop [result (select-keys deps required-ids)]
-      (let [more-ids (->> (mapcat second result)
-                            (into #{}))]
+      (let [more-ids (difference (into #{} (mapcat second result))
+                                 (key-set result))]
         (when-let [unsatisfied (seq (difference more-ids (key-set deps)))]
           (throw (ex-info
                    "Unknown component ids."
@@ -36,26 +36,33 @@
           (recur (merge result (select-keys deps more-ids)))
           result)))))
 
-(defn start-component [co]
-  (println "Starting" co)
-  (-> ((:start co))
-      (assoc :status :started)))
+(defn start-component [co deps]
+  (println "Starting" co deps)
+  (assoc co :this ((:start co) (:this co) deps)
+            :status :started))
 
 (defn start
   "Starts system"
   [system required-ids]
-  (loop [result (map-vals #(merge component-defaults %) system)
-         to-be-started (all-requires result required-ids)]
-    (if (seq to-be-started)
-      (let [[co-id deps] (peek to-be-started)]
-        (when-not (empty? deps)
-          (throw (ex-info
-                   "Dependency cycle."
-                   {:components    result
-                    :to-be-started to-be-started})))
-        (recur (update result co-id start-component)
-               (map-vals #(disj % co-id) to-be-started)))
-      result)))
+  (let [normalized (map-vals #(merge component-defaults %) system)
+        requires (all-requires normalized required-ids)]
+    (loop [result normalized
+           started-values {}
+           to-be-started (into (priority-map-keyfn count) requires)]
+      (println "To be started" to-be-started)
+      (if (seq to-be-started)
+        (let [[co-id deps] (peek to-be-started)]
+          (when-not (empty? deps)
+            (throw (ex-info
+                     "Dependency cycle."
+                     {:components    result
+                      :to-be-started to-be-started})))
+          (let [started (start-component (get result co-id)
+                                         (select-keys started-values (get requires co-id)))]
+            (recur (assoc result co-id started)
+                   (assoc started-values co-id ((:get started) (:this started)))
+                   (map-vals #(disj % co-id) (pop to-be-started)))))
+        result))))
 
 (defn stop
   "Stops system"
