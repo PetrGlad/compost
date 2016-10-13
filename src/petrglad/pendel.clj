@@ -13,23 +13,23 @@
 (defn map-vals [f m]
   (reduce-kv (fn [m k v]
                (assoc m k (f v)))
-    (empty m)
-    m))
+    (empty m) m))
 
 (defn key-set [m]
   (into #{} (keys m)))
 
-(defn add-assoc
-  ([m k]
-   (update m k #(if % % #{})))
-  ([m k v]
-   (update m k #(if % (conj % v) #{v}))))
+(defn ensure-key [m k]
+  (update m k #(if % % #{})))
+
+(defn add-assoc [m k v]
+  (-> (ensure-key m k)
+    (update k conj v)))
 
 (defn reverse-dependencies [m]
   (reduce-kv
     (fn [m1 k v]
       (reduce #(add-assoc %1 %2 k)
-              (add-assoc m1 k) v)) ;; So "bottom" is not lost
+        (ensure-key m1 k) v)) ;; So "bottom" is not lost
     {} m))
 
 (defn dependencies [system]
@@ -67,20 +67,20 @@
         requires (all-requires normalized required-ids)]
     (loop [result normalized
            started-values {}
-           to-be-started (into (priority-map-keyfn count) requires)]
-      (println "To be started" to-be-started)
-      (if (seq to-be-started)
-        (let [[co-id deps] (peek to-be-started)]
+           queue (into (priority-map-keyfn count) requires)]
+      (println "To be started" queue)
+      (if (seq queue)
+        (let [[co-id deps] (peek queue)]
           (when-not (empty? deps)
             (throw (ex-info
                      "Dependency cycle."
                      {:components    result
-                      :to-be-started to-be-started})))
+                      :to-be-started queue})))
           (let [started (start-component (get result co-id)
                           (select-keys started-values (get requires co-id)))]
             (recur (assoc result co-id started)
               (assoc started-values co-id ((:get started) (:this started)))
-              (map-vals #(disj % co-id) (pop to-be-started)))))
+              (map-vals #(disj % co-id) (pop queue)))))
         result))))
 
 (defn stop
