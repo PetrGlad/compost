@@ -6,11 +6,11 @@ This is a variation of https://github.com/stuartsierra/component project.
 ## Status
 
 Early prototype. Missing parts:
+
 1. Proper error handling (especially expect components' code exceptions), startup recovery procedure.
-2. Use loggers instead of println.
-3. More tests.
-4. Unify start/stop procedure similar to com.stuartsierra.component implementation.
-5. (Maybe. Concurrent start/stop as long as dependency graph allows.)
+2. More tests.
+3. Unify start/stop procedure similar to com.stuartsierra.component implementation.
+4. (Maybe. Concurrent start/stop as long as dependency graph allows.)
 
 ## Usage
 

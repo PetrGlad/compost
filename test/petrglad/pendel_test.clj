@@ -1,7 +1,11 @@
 (ns petrglad.pendel-test
   (:require [clojure.test :refer :all]
-            [petrglad.pendel :as pendel])
-  (:import (clojure.lang ExceptionInfo)))
+            [petrglad.pendel :as pendel]
+            [petrglad.common :as common])
+  (:import (clojure.lang ExceptionInfo)
+           (org.slf4j LoggerFactory Logger)))
+
+(def log (LoggerFactory/getLogger (name (ns-name *ns*))))
 
 (deftest test-start
   (testing "Example start/stop."
@@ -20,8 +24,8 @@
                                                  ^Runnable
                                                  (fn []
                                                    (loop []
-                                                     (Thread/sleep 1000)
-                                                     (println "Got" @sink)
+                                                     (Thread/sleep (rand-int 15))
+                                                     (.debug log "Got {}" (peek @sink))
                                                      (swap! sink #(if (seq %) (pop %) %))
                                                      (when @run?
                                                        (recur)))))]
@@ -33,26 +37,25 @@
                            :this     {:run? (atom true)}
                            :start    (fn [_this {consumer :consumer}]
                                        (assert (vector? @consumer))
+                                       (.debug log "Consumer {} " consumer)
                                        (let [run? (atom true)
                                              t (Thread.
                                                  ^Runnable
                                                  (fn []
                                                    (loop []
-                                                     (Thread/sleep 1000)
-                                                     (println "PUT(" consumer ") " (swap! consumer conj (rand-int 100)))
+                                                     (Thread/sleep (rand-int 15))
+                                                     (let [v (rand-int 100)]
+                                                       (.debug log "Put {}" v)
+                                                       (swap! consumer conj v))
                                                      (when @run?
                                                        (recur)))))]
                                          (.start t)
                                          {:run? run? :thread t}))
                            :stop     (fn [{run? :run?}]
                                        (reset! run? false))}}]
-      (try
-        (let [s (pendel/start s #{:consumer :producer})]
-          (println "Started system" (pendel/map-vals
-                                      #(select-keys % #{:requires :status :this :value})
-                                      s))
-          (Thread/sleep 5000)
-          (pendel/stop s)
-          (is (= 0 1)))
-        (catch ExceptionInfo ex
-          (println "ERROR" ex (ex-data ex)))))))
+      (let [s (pendel/start s #{:producer})]
+        (.debug log "Started system {}" (common/map-vals
+                                          #(select-keys % #{:requires :status :this :value})
+                                          s))
+        (Thread/sleep 100)
+        (pendel/stop s)))))

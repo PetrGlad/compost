@@ -1,6 +1,10 @@
 (ns petrglad.pendel
   (:require [clojure.set :refer [intersection union difference]]
-            [clojure.data.priority-map :refer [priority-map-keyfn]]))
+            [clojure.data.priority-map :refer [priority-map-keyfn]]
+            [petrglad.common :refer :all])
+  (:import (org.slf4j Logger LoggerFactory)))
+
+(def log (LoggerFactory/getLogger (name (ns-name *ns*))))
 
 (def component-defaults
   {:requires #{}
@@ -10,34 +14,12 @@
    :get      identity
    :this     nil})
 
-(defn map-vals [f m]
-  (reduce-kv (fn [m k v]
-               (assoc m k (f v)))
-    (empty m) m))
-
-(defn key-set [m]
-  (into #{} (keys m)))
-
-(defn ensure-key [m k]
-  (update m k #(if % % #{})))
-
-(defn add-assoc [m k v]
-  (-> (ensure-key m k)
-    (update k conj v)))
-
-(defn reverse-dependencies [m]
-  (reduce-kv
-    (fn [m1 k v]
-      (reduce #(add-assoc %1 %2 k)
-        (ensure-key m1 k) v)) ;; So "bottom" is not lost
-    {} m))
-
 (defn dependencies [system]
   (map-vals #(-> % :requires (into #{})) system))
 
 (defn all-requires [system required-ids]
   (let [deps (dependencies system)]
-    (println "Resolving" deps required-ids)
+    (.debug log "Resolving {} with {}" required-ids deps)
     (loop [result (select-keys deps required-ids)]
       (let [more-ids (difference (into #{} (mapcat second result))
                        (key-set result))]
@@ -51,24 +33,24 @@
           result)))))
 
 (defn start-component [co deps]
-  (println "Starting" co deps)
+  (.debug log "Starting {} {}" co deps)
   (assoc co :this ((:start co) (:this co) deps)
             :status :started))
 
 (defn stop-component [co]
-  (println "Stopping" co)
+  (.debug log "Starting {}" co)
   (assoc co :this ((:stop co) (:this co))
             :status :stopped))
 
 (defn start
-  "Starts system"
+  "Starts the system"
   [system required-ids]
   (let [normalized (map-vals #(merge component-defaults %) system)
         requires (all-requires normalized required-ids)]
     (loop [result normalized
            started-values {}
            queue (into (priority-map-keyfn count) requires)]
-      (println "To be started" queue)
+      (.debug log "To be started {}" queue)
       (if (seq queue)
         (let [[co-id deps] (peek queue)]
           (when-not (empty? deps)
@@ -84,13 +66,13 @@
         result))))
 
 (defn stop
-  "Stops system"
+  "Stops the system"
   [system]
   (let [requires (dependencies system) ;; TODO (implementation) Select only started components
         provides (reverse-dependencies requires)]
     (loop [result system
            queue (into (priority-map-keyfn count) provides)]
-      (println "To be stopped" queue)
+      (.info log "To be stopped {}" queue)
       (if (seq queue)
         (let [[co-id deps] (peek queue)]
           (when-not (empty? deps)
