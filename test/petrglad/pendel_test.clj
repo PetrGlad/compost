@@ -1,7 +1,7 @@
 (ns petrglad.pendel-test
   (:require [clojure.test :refer :all]
             [petrglad.pendel :as pendel]
-            [petrglad.common :as common])
+            [petrglad.common.maps :as maps])
   (:import (org.slf4j LoggerFactory)
            (clojure.lang ExceptionInfo)))
 
@@ -27,7 +27,7 @@
                                          (loop []
                                            (Thread/sleep (rand-int 15))
                                            (let [k (peek @sink)]
-                                             (.debug log "Got {}" (b k))
+                                             (.trace log "Got {}" (b k))
                                              (swap! received conj k))
                                            (swap! sink #(if (seq %) (pop %) %))
                                            (when @run?
@@ -48,7 +48,7 @@
                                        (fn []
                                          (loop [k 0]
                                            (Thread/sleep (rand-int 15))
-                                           (.debug log "Put {}" k)
+                                           (.trace log "Put {}" k)
                                            (swap! consumer conj k)
                                            (swap! sent conj k)
                                            (when @run?
@@ -67,33 +67,33 @@
 
 (deftest test-start-stop
   (testing "System validation."
-    (is (thrown-with-msg? ExceptionInfo #".+nknown.+"
-          (pendel/start {:a {:requres #{:a}}} #{:a})))
-    (is (thrown-with-msg? ExceptionInfo #".+nknown.+"
-          (pendel/start {:a {:requres #{:a}}} #{:z})))
-    (is (thrown-with-msg? ExceptionInfo #".+nknown.+"
-          (pendel/start {:a {:requres #{:z}}} #{:a}))))
+    (is (thrown-with-msg? ExceptionInfo #"(?i).*unknown.+"
+          (pendel/start {:a {:requres #{}}} #{:a}))) ;; Misprint
+    (is (thrown-with-msg? ExceptionInfo #"(?i).*unknown.+"
+          (pendel/start {:a {:requres #{:a}}} #{:z}))) ;; In start requires
+    (is (thrown-with-msg? ExceptionInfo #"(?i).*unknown.+"
+          (pendel/start {:a {:requres #{:z}}} #{:a})))) ;; In component requires
 
   (testing "Cycle detection."
-    (is (thrown-with-msg? ExceptionInfo #".+cycle.+"
+    (is (thrown-with-msg? ExceptionInfo #"(?i).+cycle.+"
           (pendel/start {:a {:requires #{:b}} :b {:requires #{:a}}} #{:a})))
-    (is (thrown-with-msg? ExceptionInfo #".+cycle.+"
+    (is (thrown-with-msg? ExceptionInfo #"(?i).+cycle.+"
           (pendel/start {:a {:requires #{:a}}} #{:a})))
-    (is (pendel/start {:a {:requires #{:a}} :b {}} #{:b})))
+    (is (pendel/start {:a {:requires #{:a}} :b {}} #{:b}))) ;; Unused cycle
 
   (testing "Example start/stop."
     (loop [cnt 3
            system contrived-system]
       (let [started (pendel/start system #{:producer})]
-        (is (= (-> (common/key-set contrived-system) (disj :unused))
+        (is (= (-> (maps/key-set contrived-system) (disj :unused))
               (keys-by-status started :started)))
         (is (= #{:unused} (keys-by-status started :stopped)))
         (Thread/sleep 100)
         (let [stopped (pendel/stop started)]
-          (is (= (common/key-set contrived-system)
+          (is (= (maps/key-set contrived-system)
                 (keys-by-status stopped :stopped)))
           (is (= (get-in stopped [:consumer :received])
                 (get-in stopped [:producer :sent])))
           (when (< 0 cnt)
-            (recur (dec cnt) stopped))))))) ;; No exception
+            (recur (dec cnt) stopped)))))))
 

@@ -1,7 +1,7 @@
 (ns petrglad.pendel
   (:require [clojure.set :refer [subset? intersection union difference]]
             [clojure.data.priority-map :refer [priority-map-keyfn]]
-            [petrglad.common :refer :all])
+            [petrglad.common.maps :refer :all])
   (:import (org.slf4j LoggerFactory)))
 
 (def log (LoggerFactory/getLogger (name (ns-name *ns*))))
@@ -24,8 +24,7 @@
       (let [more-ids (difference (into #{} (mapcat second result))
                        (key-set result))]
         (when-let [unsatisfied (seq (difference more-ids (key-set deps)))]
-          (throw (ex-info
-                   "Unknown component ids."
+          (throw (ex-info "Unknown component ids."
                    {:components  result
                     :unknown-ids unsatisfied})))
         (if (seq more-ids)
@@ -46,9 +45,10 @@
   (let [allowed-keys (key-set component-defaults)]
     (doseq [[k co] system]
       (when-let [unknown-fields (seq (difference (key-set co) allowed-keys))]
-        (throw (ex-info "Unknown component field." {:component-id   k
-                                                    :component      co
-                                                    :unknown-fields unknown-fields})))))
+        (throw (ex-info "Unknown component field."
+                 {:component-id   k
+                  :component      co
+                  :unknown-fields unknown-fields})))))
   (map-vals #(merge component-defaults %) system))
 
 (defn start
@@ -63,8 +63,7 @@
       (if (seq queue)
         (let [[co-id deps] (peek queue)]
           (when-not (empty? deps)
-            (throw (ex-info
-                     "Dependency cycle."
+            (throw (ex-info "Dependency cycle."
                      {:components    result
                       :to-be-started queue})))
           (let [started (start-component (get result co-id)
@@ -81,12 +80,11 @@
         provides (reverse-dependencies requires)]
     (loop [result system
            queue (into (priority-map-keyfn count) provides)]
-      (.info log "To be stopped {}" queue)
+      (.debug log "To be stopped {}" queue)
       (if (seq queue)
         (let [[co-id deps] (peek queue)]
           (when-not (empty? deps)
-            (throw (ex-info
-                     "Dependency cycle."
+            (throw (ex-info "Dependency cycle."
                      {:components result
                       :queue      queue})))
           (recur (assoc result co-id (stop-component (get result co-id)))
