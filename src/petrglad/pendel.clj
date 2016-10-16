@@ -1,14 +1,14 @@
 (ns petrglad.pendel
-  (:require [clojure.set :refer [intersection union difference]]
+  (:require [clojure.set :refer [subset? intersection union difference]]
             [clojure.data.priority-map :refer [priority-map-keyfn]]
             [petrglad.common :refer :all])
-  (:import (org.slf4j Logger LoggerFactory)))
+  (:import (org.slf4j LoggerFactory)))
 
 (def log (LoggerFactory/getLogger (name (ns-name *ns*))))
 
 (def component-defaults
   {:requires #{}
-   :status   :init
+   :status   :stopped
    :start    (fn [co _deps] co)
    :stop     (fn [co] co)
    :get      identity
@@ -42,10 +42,19 @@
   (assoc co :this ((:stop co) (:this co))
             :status :stopped))
 
+(defn normalize-system [system]
+  (let [allowed-keys (key-set component-defaults)]
+    (doseq [[k co] system]
+      (when-let [unknown-fields (seq (difference (key-set co) allowed-keys))]
+        (throw (ex-info "Unknown component field." {:component-id   k
+                                                    :component      co
+                                                    :unknown-fields unknown-fields})))))
+  (map-vals #(merge component-defaults %) system))
+
 (defn start
   "Starts the system"
   [system required-ids]
-  (let [normalized (map-vals #(merge component-defaults %) system)
+  (let [normalized (normalize-system system)
         requires (all-requires normalized required-ids)]
     (loop [result normalized
            started-values {}
@@ -68,7 +77,7 @@
 (defn stop
   "Stops the system"
   [system]
-  (let [requires (dependencies system) ;; TODO (implementation) Select only started components
+  (let [requires (dependencies system) ;; TODO (optimization) Select only started components
         provides (reverse-dependencies requires)]
     (loop [result system
            queue (into (priority-map-keyfn count) provides)]
