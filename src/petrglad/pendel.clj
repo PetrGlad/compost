@@ -31,14 +31,16 @@
           (recur (merge result (select-keys deps more-ids)))
           result)))))
 
+(defn call-component [method-key co & args]
+  (.trace log "Invoking component method {} on {}" method-key co)
+  (apply (method-key co) (:this co) args))
+
 (defn start-component [co deps]
-  (.debug log "Starting {} {}" co deps)
-  (assoc co :this ((:start co) (:this co) deps)
+  (assoc co :this (call-component :start co deps)
             :status :started))
 
 (defn stop-component [co]
-  (.debug log "Starting {}" co)
-  (assoc co :this ((:stop co) (:this co))
+  (assoc co :this (call-component :stop co)
             :status :stopped))
 
 (defn normalize-system [system]
@@ -69,7 +71,7 @@
           (let [started (start-component (get result co-id)
                           (select-keys started-values (get requires co-id)))]
             (recur (assoc result co-id started)
-              (assoc started-values co-id ((:get started) (:this started)))
+              (assoc started-values co-id (call-component :get started))
               (map-vals #(disj % co-id) (pop queue)))))
         result))))
 
