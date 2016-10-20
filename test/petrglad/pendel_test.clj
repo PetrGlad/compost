@@ -65,22 +65,24 @@
                  r))
     #{} system))
 
-(deftest test-start-stop
+(deftest test-validation
   (testing "System validation."
     (is (thrown-with-msg? ExceptionInfo #"(?i).*unknown.+"
           (pendel/start {:a {:requres #{}}} #{:a}))) ;; Misprint
     (is (thrown-with-msg? ExceptionInfo #"(?i).*unknown.+"
-          (pendel/start {:a {:requres #{:a}}} #{:z}))) ;; In start requires
+          (pendel/start {:a {:requires #{:a}}} #{:z}))) ;; In start requires
     (is (thrown-with-msg? ExceptionInfo #"(?i).*unknown.+"
-          (pendel/start {:a {:requres #{:z}}} #{:a})))) ;; In component requires
+          (pendel/start {:a {:requires #{:z}}} #{:a}))))) ;; In component requires
 
+(deftest test-cycles
   (testing "Cycle detection."
     (is (thrown-with-msg? ExceptionInfo #"(?i).+cycle.+"
           (pendel/start {:a {:requires #{:b}} :b {:requires #{:a}}} #{:a})))
     (is (thrown-with-msg? ExceptionInfo #"(?i).+cycle.+"
           (pendel/start {:a {:requires #{:a}}} #{:a})))
-    (is (pendel/start {:a {:requires #{:a}} :b {}} #{:b}))) ;; Unused cycle
+    (is (pendel/start {:a {:requires #{:a}} :b {}} #{:b})))) ;; Unused cycle
 
+(deftest test-start-stop
   (testing "Example start/stop."
     (loop [cnt 3
            system contrived-system]
@@ -96,4 +98,11 @@
                 (get-in stopped [:producer :sent])))
           (when (< 0 cnt)
             (recur (dec cnt) stopped)))))))
+
+;; FIXME Handle component failures.
+#_(deftest test-failures
+  (testing "Component failures"
+    (is (pendel/start {:a {:start (fn [_this _deps]
+                                    (throw (Exception. "Cannot start this.")))}}
+          #{:a}))))
 

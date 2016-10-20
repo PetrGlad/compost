@@ -17,23 +17,29 @@
 (defn dependencies [system]
   (map-vals #(-> % :requires (into #{})) system))
 
+(defn- require-ids [system all-ids ids]
+  (when-let [missing (seq (difference ids all-ids))]
+    (throw (ex-info (str "Unknown component ids " (pr-str missing))
+             {:system      system
+              :unknown-ids missing}))))
+
 (defn all-requires [system required-ids]
-  (let [deps (dependencies system)]
+  (let [deps (dependencies system)
+        check-ids #(require-ids system (key-set deps) %)]
     (.debug log "Resolving {} with {}" required-ids deps)
+    (check-ids required-ids)
     (loop [result (select-keys deps required-ids)]
       (let [more-ids (difference (into #{} (mapcat second result))
                        (key-set result))]
-        (when-let [unsatisfied (seq (difference more-ids (key-set deps)))]
-          (throw (ex-info "Unknown component ids."
-                   {:components  result
-                    :unknown-ids unsatisfied})))
+        (check-ids more-ids)
         (if (seq more-ids)
           (recur (merge result (select-keys deps more-ids)))
           result)))))
 
 (defn call-component [method-key co & args]
+  {:pre [(get co method-key) (contains? co :this)]}
   (.trace log "Invoking component method {} on {}" method-key co)
-  (apply (method-key co) (:this co) args))
+  (apply (get co method-key) (:this co) args))
 
 (defn start-component [co deps]
   (assoc co :this (call-component :start co deps)
@@ -42,6 +48,10 @@
 (defn stop-component [co]
   (assoc co :this (call-component :stop co)
             :status :stopped))
+
+(defn get-component [co]
+  {:pre [(= :started (:status co))]}
+  (call-component :get co))
 
 (defn normalize-system [system]
   (let [allowed-keys (key-set component-defaults)]
@@ -53,42 +63,40 @@
                   :unknown-fields unknown-fields})))))
   (map-vals #(merge component-defaults %) system))
 
+(defn update-system
+  "Updates the system by applying function to components while ensuring given dependencies.
+   In case of errors throws ExceptionInfo with :system key containing current system,
+   and failed :component (if relevant)."
+  [system dependencies update-component]
+  (loop [result system
+         queue (into (priority-map-keyfn count) dependencies)]
+    (.debug log "System update queue {}" queue)
+    (if (seq queue)
+      (let [[co-id deps] (peek queue)]
+        (when-not (empty? deps)
+          (throw (ex-info "Dependency cycle."
+                   {:system result
+                    :queue  queue})))
+        (recur (update result co-id #(update-component result %))
+          (map-vals #(disj % co-id) (pop queue))))
+      result)))
+
 (defn start
-  "Starts the system"
+  "Starts the system."
   [system required-ids]
   (let [normalized (normalize-system system)
         requires (all-requires normalized required-ids)]
-    (loop [result normalized
-           started-values {}
-           queue (into (priority-map-keyfn count) requires)]
-      (.debug log "To be started {}" queue)
-      (if (seq queue)
-        (let [[co-id deps] (peek queue)]
-          (when-not (empty? deps)
-            (throw (ex-info "Dependency cycle."
-                     {:components    result
-                      :to-be-started queue})))
-          (let [started (start-component (get result co-id)
-                          (select-keys started-values (get requires co-id)))]
-            (recur (assoc result co-id started)
-              (assoc started-values co-id (call-component :get started))
-              (map-vals #(disj % co-id) (pop queue)))))
-        result))))
+    (update-system normalized requires
+      (fn [sys co]
+        (start-component co
+          (map-vals get-component ;; (These values can be cached)
+            (select-keys sys (:requires co))))))))
 
 (defn stop
-  "Stops the system"
+  "Stops the system."
   [system]
-  (let [requires (dependencies system) ;; TODO (optimization) Select only started components
-        provides (reverse-dependencies requires)]
-    (loop [result system
-           queue (into (priority-map-keyfn count) provides)]
-      (.debug log "To be stopped {}" queue)
-      (if (seq queue)
-        (let [[co-id deps] (peek queue)]
-          (when-not (empty? deps)
-            (throw (ex-info "Dependency cycle."
-                     {:components result
-                      :queue      queue})))
-          (recur (assoc result co-id (stop-component (get result co-id)))
-                 (map-vals #(disj % co-id) (pop queue))))
-        result))))
+  (let [provides (reverse-dependencies
+                   (dependencies system))]
+    (update-system system provides
+      (fn [_sys co]
+        (stop-component co)))))

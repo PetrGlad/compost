@@ -1,15 +1,15 @@
 # pendel
 
 Library that manages lifecycle of stateful components. 
-This is a variation of https://github.com/stuartsierra/component project.
+This is a variation of https://github.com/stuartsierra/component project's idea.
 
 ## Status
 
 Early prototype. Missing parts:
 
-1. Proper error handling (especially expect components' code exceptions), startup recovery procedure.
-2. More tests.
-3. Unify start/stop procedure similar to com.stuartsierra.component implementation.
+1. Proper error handling (especially expect components' code exceptions)
+2. Startup recovery procedure.
+3. More tests.
 4. (Maybe. Concurrent start/stop as long as dependency graph allows.)
 
 ## Usage
@@ -56,10 +56,10 @@ I like what com.stuartsierra.component provides but I also want
   to avoid creating new types and instead of composition use e.g. macroses to generate component code.
 * Use plain Clojure data structures to configure system. I think that putting configuration into metadata
   was a mistake. Instead of streamlining it actually complicates code. With this approach, it's not 
-  clear for casual reader what happens when you configure system and why it requires helper functions to do that.
+  clear for reader what happens when you configure system and why it requires helper functions to do that.
 * Provide default cleanup procedure. This is rather an opinion part. I want a default procedure 
   that tries to stop system in case of partial start.
-* Be potentially compatible with com.stuartsierra.component/Lifecycle components. 
+* Be compatible with com.stuartsierra.component/Lifecycle components. 
   There are already lots of such components and this is a good thing. 
   This part should require only small amount of glue code.
 
