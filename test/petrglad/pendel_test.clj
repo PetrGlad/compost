@@ -99,10 +99,16 @@
           (when (< 0 cnt)
             (recur (dec cnt) stopped)))))))
 
-;; FIXME Handle component failures.
-#_(deftest test-failures
+(deftest test-failures
   (testing "Component failures"
-    (is (pendel/start {:a {:start (fn [_this _deps]
-                                    (throw (Exception. "Cannot start this.")))}}
-          #{:a}))))
+    (try
+      (pendel/start
+        {:a {:start (fn [_this _deps]
+                      (throw (Exception. "Cannot start this.")))}}
+        #{:a})
+      (assert false)
+      (catch ExceptionInfo ex
+        ;;; FIXME Add assertions
+        (pendel/stop (:system ex))
+        #_(.error log (pr-str (ex-data ex)))))))
 

@@ -77,7 +77,17 @@
           (throw (ex-info "Dependency cycle."
                    {:system result
                     :queue  queue})))
-        (recur (update result co-id #(update-component result %))
+        (recur
+          (update result co-id
+            (fn [co]
+              (try
+                (update-component result co)
+                (catch Exception ex
+                  (throw (ex-info "Cannot update component"
+                           {:system    result
+                            :component co
+                            :queue     queue}
+                           ex))))))
           (map-vals #(disj % co-id) (pop queue))))
       result)))
 
