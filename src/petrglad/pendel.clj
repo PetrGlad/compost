@@ -97,8 +97,8 @@
   ([system required-ids]
    {:pre [(map? system)]}
    (let [normalized (normalize-system system)
-         depends (dependencies normalized)
-         queue (all-reachable depends required-ids)]
+         queue (-> (dependencies normalized)
+                 (all-reachable required-ids))]
      (update-system normalized queue
        (fn [sys co]
          (start-component co
@@ -111,9 +111,9 @@
    (stop system (key-set system)))
   ([system stop-ids]
    {:pre [(map? system)]}
-   (let [provides (reverse-dependencies
-                    (dependencies system))
-         queue (all-reachable provides stop-ids)]
+   (let [queue (-> (dependencies system)
+                 (reverse-dependencies)
+                 (all-reachable stop-ids))]
      (update-system system queue
        (fn [_sys co]
          (stop-component co))))))
