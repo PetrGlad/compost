@@ -15,7 +15,7 @@
    :this     nil})
 
 (defn dependencies [system]
-  (map-vals #(-> % :requires (into #{})) system))
+  (map-vals #(-> % :requires set) system))
 
 (defn- require-ids [deps all-ids ids]
   (when-let [missing (seq (difference ids all-ids))]
@@ -28,7 +28,7 @@
     (.debug log "Resolving {} with {}" required-ids deps)
     (check-ids required-ids)
     (loop [result (select-keys deps required-ids)]
-      (let [more-ids (difference (into #{} (mapcat second result))
+      (let [more-ids (difference (set (mapcat second result))
                        (key-set result))]
         (check-ids more-ids)
         (if (seq more-ids)

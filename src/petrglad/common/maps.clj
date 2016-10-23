@@ -6,7 +6,7 @@
     (empty m) m))
 
 (defn key-set [m]
-  (into #{} (keys m)))
+  (set (keys m)))
 
 (defn ensure-key [m k]
   (update m k #(if % % #{})))
