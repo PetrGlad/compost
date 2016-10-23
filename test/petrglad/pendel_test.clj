@@ -22,7 +22,7 @@
                  :get      :sink
                  :start    (fn [_this {a :component-a b :component-b}]
                              (assert (= a 12) (= (b 33) 45))
-                             (let [sink (atom [])
+                             (let [sink (atom (seque 5))
                                    received (atom #{})
                                    run? (atom true)
                                    t (Thread.
@@ -30,12 +30,9 @@
                                        (fn []
                                          (loop []
                                            (Thread/sleep (rand-int 15))
-                                           (loop [k (peek @sink)]
-                                             (when k
-                                               (.trace log "Got {}" k)
-                                               (swap! received conj k)
-                                               (swap! sink pop)
-                                               (recur (peek @sink))))
+                                           (doseq [k @sink]
+                                             (.trace log "Got {}" k)
+                                             (swap! received conj k))
                                            (when @run?
                                              (recur)))))]
                                (.start t)
@@ -45,7 +42,7 @@
    :producer    {:requires #{:consumer}
                  :this     {:run? (atom true)}
                  :start    (fn [_this {consumer :consumer}]
-                             (assert (vector? @consumer))
+                             (assert (seq? @consumer))
                              (.debug log "Consumer {} " consumer)
                              (let [run? (atom true)
                                    sent (atom #{})
@@ -106,7 +103,7 @@
                 (keys-by-status stopped :stopped)))
           (let [received @(get-in stopped [:consumer :this :received])
                 sent @(get-in stopped [:producer :this :sent])]
-            ;;(is (seq received))
+            (is (set? received))
             (is (= received sent)))
           (when (< 0 cnt)
             (recur (dec cnt) stopped)))))))
