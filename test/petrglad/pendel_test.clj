@@ -58,6 +58,11 @@
                  :stop     (fn [this]
                              (update this :run? reset! false))}})
 
+(defn component-statuses [system]
+  (reduce-kv (fn [m id co]
+               (maps/add-assoc m (:status co) id))
+    {} system))
+
 (defn keys-by-status [system status]
   (reduce-kv (fn [r k co]
                (if (= status (:status co))
@@ -101,14 +106,68 @@
 
 (deftest test-failures
   (testing "Component failures"
-    (try
-      (pendel/start
-        {:a {:start (fn [_this _deps]
-                      (throw (Exception. "Cannot start this.")))}}
-        #{:a})
-      (assert false)
-      (catch ExceptionInfo ex
-        ;;; FIXME Add assertions
-        (pendel/stop (:system ex))
-        #_(.error log (pr-str (ex-data ex)))))))
+    (let [s {:a {:start (fn [_this _deps]
+                          (throw (Exception. "Cannot start this.")))}}]
+      (try
+        (pendel/start s #{:a})
+        (assert false)
+        (catch ExceptionInfo ex
+          (let [{system :system} (ex-data ex)]
+            (is (= (pendel/normalize-system s) system)) ;;; Not changed
+            (is (= system (pendel/stop system)))))))
+    (let [s {:a {}
+             :b {:requires #{:a}
+                 :start    (fn [_this _deps]
+                             (throw (Exception. "Cannot start this.")))}}]
+      (try
+        (pendel/start s #{:b})
+        (assert false)
+        (catch ExceptionInfo ex
+          (let [{system :system} (ex-data ex)]
+            (is (= {:started #{:a} :stopped #{:b}}
+                  (component-statuses system)))
+            (let [stopped (pendel/stop system)]
+              (is (= {:stopped #{:a :b}}
+                    (component-statuses stopped))))))))))
+
+;;; TODO Implement partial start stop
+(deftest test-partial-stop
+  (testing "Partial stop/start"
+    (let [s {:a {}
+             :b {:requires #{:a}}
+             :c {:requires #{:b}}}
+          s1 (pendel/start s #{:c})
+          _ (is (= {:started #{:a :b :c}}
+                  (component-statuses s1)))
+          s2 (pendel/stop s1)
+          _ (is (= {:stopped #{:a :b :c}}
+                  (component-statuses s2)))
+          s3 (pendel/start s2)
+          _ (is (= {:started #{:a :b :c}}
+                  (component-statuses s1)))
+          s4 (pendel/stop s3 #{:b})
+          _ (is (= {:started #{:a} :stopped #{:b :c}}
+                  (component-statuses s4)))
+          s5 (pendel/start s4 #{:c})
+          _ (is (= {:started #{:a :b :c}}
+                  (component-statuses s5)))]))
+  (testing "Partial stop/start disjoined"
+    (let [s {:a {}
+             :b {}
+             :c {}}
+          s1 (pendel/start s)
+          _ (is (= {:started #{:a :b :c}}
+                  (component-statuses s1)))
+          s2 (pendel/stop s1 #{:a})
+          _ (is (= {:stopped #{:a} :started #{:b :c}}
+                  (component-statuses s2)))
+          s3 (pendel/stop s2 #{:b})
+          _ (is (= {:stopped #{:a :b} :started #{:c}}
+                  (component-statuses s3)))
+          s4 (pendel/start s3 #{:a})
+          _ (is (= {:stopped #{:b} :started #{:a :c}}
+                  (component-statuses s4)))
+          s5 (pendel/stop s4 #{:a :b})
+          _ (is (= {:stopped #{:a :b} :started #{:c}}
+                  (component-statuses s5)))])))
 

@@ -17,15 +17,14 @@
 (defn dependencies [system]
   (map-vals #(-> % :requires (into #{})) system))
 
-(defn- require-ids [system all-ids ids]
+(defn- require-ids [deps all-ids ids]
   (when-let [missing (seq (difference ids all-ids))]
     (throw (ex-info (str "Unknown component ids " (pr-str missing))
-             {:system      system
-              :unknown-ids missing}))))
+             {:dependencies deps
+              :unknown-ids  missing}))))
 
-(defn all-requires [system required-ids]
-  (let [deps (dependencies system)
-        check-ids #(require-ids system (key-set deps) %)]
+(defn all-reachable [deps required-ids]
+  (let [check-ids #(require-ids deps (key-set deps) %)]
     (.debug log "Resolving {} with {}" required-ids deps)
     (check-ids required-ids)
     (loop [result (select-keys deps required-ids)]
@@ -93,20 +92,28 @@
 
 (defn start
   "Starts the system."
-  [system required-ids]
-  (let [normalized (normalize-system system)
-        requires (all-requires normalized required-ids)]
-    (update-system normalized requires
-      (fn [sys co]
-        (start-component co
-          (map-vals get-component ;; (These values can be cached)
-            (select-keys sys (:requires co))))))))
+  ([system]
+   (start system (key-set system)))
+  ([system required-ids]
+   {:pre [(map? system)]}
+   (let [normalized (normalize-system system)
+         depends (dependencies normalized)
+         queue (all-reachable depends required-ids)]
+     (update-system normalized queue
+       (fn [sys co]
+         (start-component co
+           (map-vals get-component ;; (These values can be cached. Memoize?)
+             (select-keys sys (:requires co)))))))))
 
 (defn stop
   "Stops the system."
-  [system]
-  (let [provides (reverse-dependencies
-                   (dependencies system))]
-    (update-system system provides
-      (fn [_sys co]
-        (stop-component co)))))
+  ([system]
+   (stop system (key-set system)))
+  ([system stop-ids]
+   {:pre [(map? system)]}
+   (let [provides (reverse-dependencies
+                    (dependencies system))
+         queue (all-reachable provides stop-ids)]
+     (update-system system queue
+       (fn [_sys co]
+         (stop-component co))))))
