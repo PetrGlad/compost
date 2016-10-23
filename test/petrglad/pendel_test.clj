@@ -7,9 +7,13 @@
 
 (def log (LoggerFactory/getLogger (name (ns-name *ns*))))
 
+(defn stop-runner [this]
+  (let [updated (update this :run? reset! false)]
+    (.join (:thread this))
+    updated))
+
 (def contrived-system
   {:component-a {:this 12}
-   :unused      {:requires #{:consumer}}
    :component-b {:requires #{:component-a}
                  :start    (fn [_this {a :component-a}]
                              (assert (= a 12))
@@ -26,16 +30,18 @@
                                        (fn []
                                          (loop []
                                            (Thread/sleep (rand-int 15))
-                                           (let [k (peek @sink)]
-                                             (.trace log "Got {}" (b k))
-                                             (swap! received conj k))
-                                           (swap! sink #(if (seq %) (pop %) %))
+                                           (loop [k (peek @sink)]
+                                             (when k
+                                               (.trace log "Got {}" k)
+                                               (swap! received conj k)
+                                               (swap! sink pop)
+                                               (recur (peek @sink))))
                                            (when @run?
                                              (recur)))))]
                                (.start t)
                                {:run? run? :thread t :sink sink :received received}))
-                 :stop     (fn [this]
-                             (update this :run? reset! false))}
+                 :stop     stop-runner}
+   :unused      {:requires #{:consumer}}
    :producer    {:requires #{:consumer}
                  :this     {:run? (atom true)}
                  :start    (fn [_this {consumer :consumer}]
@@ -55,8 +61,7 @@
                                              (recur (inc k))))))]
                                (.start t)
                                {:run? run? :thread t :sent sent}))
-                 :stop     (fn [this]
-                             (update this :run? reset! false))}})
+                 :stop     stop-runner}})
 
 (defn component-statuses [system]
   (reduce-kv (fn [m id co]
@@ -99,8 +104,10 @@
         (let [stopped (pendel/stop started)]
           (is (= (maps/key-set contrived-system)
                 (keys-by-status stopped :stopped)))
-          (is (= (get-in stopped [:consumer :received])
-                (get-in stopped [:producer :sent])))
+          (let [received @(get-in stopped [:consumer :this :received])
+                sent @(get-in stopped [:producer :this :sent])]
+            ;;(is (seq received))
+            (is (= received sent)))
           (when (< 0 cnt)
             (recur (dec cnt) stopped)))))))
 
@@ -130,9 +137,8 @@
               (is (= {:stopped #{:a :b}}
                     (component-statuses stopped))))))))))
 
-;;; TODO Implement partial start stop
 (deftest test-partial-stop
-  (testing "Partial stop/start"
+  (testing "Partial start/stop"
     (let [s {:a {}
              :b {:requires #{:a}}
              :c {:requires #{:b}}}
@@ -151,7 +157,7 @@
           s5 (pendel/start s4 #{:c})
           _ (is (= {:started #{:a :b :c}}
                   (component-statuses s5)))]))
-  (testing "Partial stop/start disjoined"
+  (testing "Partial start/stop disjoined"
     (let [s {:a {}
              :b {}
              :c {}}
@@ -170,4 +176,3 @@
           s5 (pendel/stop s4 #{:a :b})
           _ (is (= {:stopped #{:a :b} :started #{:c}}
                   (component-statuses s5)))])))
-

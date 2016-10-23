@@ -19,5 +19,6 @@
     <orderEntry type="library" name="Leiningen: org.clojure/tools.nrepl:0.2.12" level="project" />
     <orderEntry type="library" name="Leiningen: org.slf4j/slf4j-api:1.7.21" level="project" />
     <orderEntry type="library" name="Leiningen: org.slf4j/slf4j-simple:1.7.21" level="project" />
+    <orderEntry type="library" name="Leiningen: pjstadig/humane-test-output:0.8.1" level="project" />
   </component>
 </module>
