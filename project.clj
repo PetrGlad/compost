@@ -9,4 +9,6 @@
                  [org.slf4j/slf4j-api "1.7.21"]]
 
   :profiles
-  {:dev {:dependencies [[org.slf4j/slf4j-simple "1.7.21"]]}})
+  {:dev {:dependencies [[org.clojure/core.async "0.2.395"]
+                        [org.slf4j/slf4j-simple "1.7.21"]
+                        [org.clojure/tools.namespace "0.2.11"]]}})

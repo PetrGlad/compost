@@ -1,16 +1,12 @@
 (ns petrglad.pendel-test
   (:require [clojure.test :refer :all]
             [petrglad.pendel :as pendel]
-            [petrglad.common.maps :as maps])
+            [petrglad.common.maps :as maps]
+            [clojure.core.async :as async :refer [>!! <!! chan alt!! timeout]])
   (:import (org.slf4j LoggerFactory)
            (clojure.lang ExceptionInfo)))
 
 (def log (LoggerFactory/getLogger (name (ns-name *ns*))))
-
-(defn stop-runner [this]
-  (let [updated (update this :run? reset! false)]
-    (.join (:thread this))
-    updated))
 
 (def contrived-system
   {:component-a {:this 12}
@@ -22,43 +18,45 @@
                  :get      :sink
                  :start    (fn [_this {a :component-a b :component-b}]
                              (assert (= a 12) (= (b 33) 45))
-                             (let [sink (atom (seque 5))
-                                   received (atom #{})
-                                   run? (atom true)
-                                   t (Thread.
-                                       ^Runnable
-                                       (fn []
-                                         (loop []
-                                           (Thread/sleep (rand-int 15))
-                                           (doseq [k @sink]
-                                             (.trace log "Got {}" k)
-                                             (swap! received conj k))
-                                           (when @run?
-                                             (recur)))))]
-                               (.start t)
-                               {:run? run? :thread t :sink sink :received received}))
-                 :stop     stop-runner}
+                             (let [stop (chan)
+                                   sink (chan 4)
+                                   received (async/thread
+                                              (loop [received #{}]
+                                                (let [state (alt!!
+                                                              [sink] ([x] x)
+                                                              [stop] :stop)]
+                                                  (.trace log "Got {}" state)
+                                                  (if (= :stop state)
+                                                    received
+                                                    (recur (conj received state))))))]
+                               {:stop stop :sink sink :received received}))
+                 :stop     (fn stop-runner [this]
+                             (>!! (:stop this) true)
+                             this)}
    :unused      {:requires #{:consumer}}
    :producer    {:requires #{:consumer}
-                 :this     {:run? (atom true)}
                  :start    (fn [_this {consumer :consumer}]
-                             (assert (seq? @consumer))
+                             (assert consumer)
                              (.debug log "Consumer {} " consumer)
-                             (let [run? (atom true)
-                                   sent (atom #{})
-                                   t (Thread.
-                                       ^Runnable
-                                       (fn []
-                                         (loop [k 0]
-                                           (Thread/sleep (rand-int 15))
-                                           (.trace log "Put {}" k)
-                                           (swap! consumer conj k)
-                                           (swap! sent conj k)
-                                           (when @run?
-                                             (recur (inc k))))))]
-                               (.start t)
-                               {:run? run? :thread t :sent sent}))
-                 :stop     stop-runner}})
+                             (let [stop (chan)
+                                   sent (async/thread
+                                          (loop [k 0
+                                                 sent #{}]
+                                            (<!! (timeout (rand-int 30)))
+                                            (let [state (alt!!
+                                                          [[consumer k]] :put
+                                                          [(timeout 2000)] :timeout
+                                                          [stop] :stop)]
+                                              (.trace log "State {}, k {}" state k)
+                                              (case state
+                                                :stop sent
+                                                :put (recur
+                                                       (inc k)
+                                                       (conj sent k))))))]
+                               {:stop stop :sent sent}))
+                 :stop     (fn stop-runner [this]
+                             (>!! (:stop this) true)
+                             this)}})
 
 (defn component-statuses [system]
   (reduce-kv (fn [m id co]
@@ -101,10 +99,10 @@
         (let [stopped (pendel/stop started)]
           (is (= (maps/key-set contrived-system)
                 (keys-by-status stopped :stopped)))
-          (let [received @(get-in stopped [:consumer :this :received])
-                sent @(get-in stopped [:producer :this :sent])]
+          (let [received (<!! (get-in stopped [:consumer :this :received]))
+                sent (<!! (get-in stopped [:producer :this :sent]))]
             (is (set? received))
-            (is (= received sent)))
+            (is (= sent received)))
           (when (< 0 cnt)
             (recur (dec cnt) stopped)))))))
 
@@ -153,7 +151,8 @@
                   (component-statuses s4)))
           s5 (pendel/start s4 #{:c})
           _ (is (= {:started #{:a :b :c}}
-                  (component-statuses s5)))]))
+                  (component-statuses s5)))]
+      s5)) ;; For eastwood
   (testing "Partial start/stop disjoined"
     (let [s {:a {}
              :b {}
@@ -172,4 +171,5 @@
                   (component-statuses s4)))
           s5 (pendel/stop s4 #{:a :b})
           _ (is (= {:stopped #{:a :b} :started #{:c}}
-                  (component-statuses s5)))])))
+                  (component-statuses s5)))]
+      s5))) ;; For eastwood
