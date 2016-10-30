@@ -2,16 +2,11 @@
 
 Library that manages lifecycle of stateful components. 
 This is a variation of https://github.com/stuartsierra/component project's idea.
+At the moment this library does not support ClojureScript.
 
 ## Status
 
 Beta, you are welcome to try it. 
-Missing parts:
-
-1. Startup recovery procedure.
-2. Publish JAR.
-3. Ready-to use wrapper for stuartsierra.component (probably should be a separate project).
-4. (Maybe. Concurrent start/stop as long as dependency graph allows.)
 
 ## Usage
 
@@ -19,18 +14,19 @@ See tests for examples. Component declaration has form
 ```clojure
    {:requires #{:required-component-id-1 :required-component-id-2}}
     :this initial-state
-    :get (fn [this] ...) ;; Determines what other components will get as value of this component. 
+    :get (fn [this] ...) ;; Returns value of this component that other components will get as dependency. 
     :start (fn [this dependency-components-map] ...) ;; Acquire resources (open connections, start threads ...)
     :stop (fn [this] ...)} ;; Release resources.
 ```
-All fields are optional. Component defaults are:
+All fields are optional, defaults are:
 ```clojure
    {:requires #{}
     :this nil
-    :get (fn [this] this) 
-    :start (fn [this dependency-components-map])
-    :stop (fn [this])}
+    :get identity 
+    :start (fn [this dependency-components-map] this)
+    :stop identity}
 ```
+`:start` and `:stop` functions should return new value of component's `:this`.
 If component acquires resources in `:start` it must release them in `:stop`. 
 If `:stop` function is present then it must handle gracefully `(stop (stop component))` case.
 System declaration is a plain map
@@ -47,14 +43,35 @@ Lifecycle usage example
    (pendel/stop s))
 ```
 
+### Using stuartsierra.component components
+
+You can set component's dependencies in start function as follows:
+
+```clojure
+(defn start-su-component [this deps]
+    (-> (merge this deps)
+        component/start))
+ 
+(def system 
+  {:conn-source {:this (->MyConnPool)
+                 :start start-su-component
+                 :stop component/stop}
+   :dao {:requires #{:conn-source} 
+         :this (map->MyDbComponent {})
+         :start start-su-component
+         :stop component/stop}}
+```
+
 ## Motivation
 
 I like what com.stuartsierra.component provides but I also want
 * Use any value as component. E.g. often I want a function closure to be a component. 
-  Or, alternatively, a component be visible as a function. 
+  Or, alternatively, a component be visible as a function. Besides this, I do not like the idea of  
+  always keeping dependency reference even though it might be needed only in start function. 
 * Do not require a new type for each component. Requirement to implement Lifecycle often
-  gets in the way when you only need an ad-hock component. This also means that sometimes people try
-  to avoid creating new types and instead of composition use e.g. macroses to generate component code.
+  gets in the way when you only need an ad-hock component. Also requirement for component 
+  to be a map and implement LifeCycle effectively requires component to be a record. 
+  This also means that sometimes people resort to work-arounds to avoid creating new types.
 * Use plain Clojure data structures to configure system. I think that putting configuration into metadata
   was a mistake. Instead of streamlining it actually complicates code. With this approach, it's not 
   clear for reader what happens when you configure system and why it requires helper functions to do that.

@@ -10,7 +10,7 @@
   {:requires #{}
    :status   :stopped
    :start    (fn [co _deps] co)
-   :stop     (fn [co] co)
+   :stop     identity
    :get      identity
    :this     nil})
 
@@ -102,7 +102,7 @@
      (update-system normalized queue
        (fn [sys co]
          (start-component co
-           (map-vals get-component ;; (These values can be cached. Memoize?)
+           (map-vals get-component ;;; (These values can be cached. Memoize?)
              (select-keys sys (:requires co)))))))))
 
 (defn stop

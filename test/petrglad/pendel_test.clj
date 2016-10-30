@@ -9,7 +9,7 @@
 (def log (LoggerFactory/getLogger (name (ns-name *ns*))))
 
 (def contrived-system
-  {:component-a {:this 12}
+  {:component-a {:this 12} ;;; Taking tech to the limits...
    :component-b {:requires #{:component-a}
                  :start    (fn [_this {a :component-a}]
                              (assert (= a 12))
