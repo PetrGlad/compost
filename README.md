@@ -5,11 +5,12 @@ This is a variation of https://github.com/stuartsierra/component project's idea.
 
 ## Status
 
-Early prototype. Missing parts:
+Beta, you are welcome to try it. 
+Missing parts:
 
-1. Proper error handling (especially expect components' code exceptions)
-2. Startup recovery procedure.
-3. More tests.
+1. Startup recovery procedure.
+2. Publish JAR.
+3. Ready-to use wrapper for stuartsierra.component (probably should be a separate project).
 4. (Maybe. Concurrent start/stop as long as dependency graph allows.)
 
 ## Usage
