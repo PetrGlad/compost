@@ -31,8 +31,9 @@ If component acquires resources in `:start` it must release them in `:stop`.
 If `:stop` function is present then it must handle gracefully `(stop (stop component))` case.
 System declaration is a plain map
 ```clojure
-  {:component-1-id component-1-declaraion
-   :component-2-id component-2-declaraion
+  {:component-1-id component-1-declaration
+   :component-2-id component-2-declaration
+   ...
   }
 ```
 
@@ -45,21 +46,24 @@ Lifecycle usage example
 
 ### Using stuartsierra.component components
 
-You can set component's dependencies in start function as follows:
+You can adapt existing components as follows:
 
 ```clojure
-(defn start-su-component [this deps]
-    (-> (merge this deps)
-        component/start))
+(defn component-using [init using]
+  {:requires (set using)
+   :this init
+   :start (fn [this deps]
+            (-> (merge this deps)
+                component/start)
+   :stop component/stop})
  
 (def system 
-  {:conn-source {:this (->MyConnPool)
-                 :start start-su-component
-                 :stop component/stop}
-   :dao {:requires #{:conn-source} 
-         :this (map->MyDbComponent {})
-         :start start-su-component
-         :stop component/stop}}
+  {:conn-source (component-using
+                   (->MyConnPool)
+                   [])
+   :dao (component-using
+          (map->MyDbComponent {})
+          [:conn-source])}
 ```
 
 ## Motivation
