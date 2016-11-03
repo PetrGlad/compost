@@ -1,7 +1,7 @@
-(ns petrglad.pendel
+(ns net.readmarks.compost
   (:require [clojure.set :refer [subset? intersection union difference]]
             [clojure.data.priority-map :refer [priority-map-keyfn]]
-            [petrglad.common.maps :refer :all])
+            [net.readmarks.common.maps :refer :all])
   (:import (org.slf4j LoggerFactory)))
 
 (def log (LoggerFactory/getLogger (name (ns-name *ns*))))

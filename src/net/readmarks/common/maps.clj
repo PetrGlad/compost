@@ -1,4 +1,4 @@
-(ns petrglad.common.maps)
+(ns net.readmarks.common.maps)
 
 (defn map-vals [f m]
   (reduce-kv (fn [m k v]

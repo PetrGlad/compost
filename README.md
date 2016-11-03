@@ -1,4 +1,4 @@
-# pendel
+# Compost
 
 Library that manages lifecycle of stateful components. 
 This is a variation of https://github.com/stuartsierra/component project's idea.
@@ -39,9 +39,9 @@ System declaration is a plain map
 
 Lifecycle usage example
 ```clojure
- (let [s (pendel/start system-map #{:web-component :some-worker-component})]
+ (let [s (compost/start system-map #{:web-component :some-worker-component})]
    (Thread/sleep 5000)
-   (pendel/stop s))
+   (compost/stop s))
 ```
 
 ### Using stuartsierra.component components

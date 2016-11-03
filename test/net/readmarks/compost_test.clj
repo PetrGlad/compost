@@ -1,7 +1,7 @@
-(ns petrglad.pendel-test
+(ns net.readmarks.compost-test
   (:require [clojure.test :refer :all]
-            [petrglad.pendel :as pendel]
-            [petrglad.common.maps :as maps]
+            [net.readmarks.compost :as compost]
+            [net.readmarks.common.maps :as maps]
             [clojure.core.async :as async :refer [>!! <!! chan alt!! timeout]])
   (:import (org.slf4j LoggerFactory)
            (clojure.lang ExceptionInfo)))
@@ -73,30 +73,30 @@
 (deftest test-validation
   (testing "System validation."
     (is (thrown-with-msg? ExceptionInfo #"(?i).*unknown.+"
-          (pendel/start {:a {:requres #{}}} #{:a}))) ;; Misprint
+          (compost/start {:a {:requres #{}}} #{:a}))) ;; Misprint
     (is (thrown-with-msg? ExceptionInfo #"(?i).*unknown.+"
-          (pendel/start {:a {:requires #{:a}}} #{:z}))) ;; In start requires
+          (compost/start {:a {:requires #{:a}}} #{:z}))) ;; In start requires
     (is (thrown-with-msg? ExceptionInfo #"(?i).*unknown.+"
-          (pendel/start {:a {:requires #{:z}}} #{:a}))))) ;; In component requires
+          (compost/start {:a {:requires #{:z}}} #{:a}))))) ;; In component requires
 
 (deftest test-cycles
   (testing "Cycle detection."
     (is (thrown-with-msg? ExceptionInfo #"(?i).+cycle.+"
-          (pendel/start {:a {:requires #{:b}} :b {:requires #{:a}}} #{:a})))
+          (compost/start {:a {:requires #{:b}} :b {:requires #{:a}}} #{:a})))
     (is (thrown-with-msg? ExceptionInfo #"(?i).+cycle.+"
-          (pendel/start {:a {:requires #{:a}}} #{:a})))
-    (is (pendel/start {:a {:requires #{:a}} :b {}} #{:b})))) ;; Unused cycle
+          (compost/start {:a {:requires #{:a}}} #{:a})))
+    (is (compost/start {:a {:requires #{:a}} :b {}} #{:b})))) ;; Unused cycle
 
 (deftest test-start-stop
   (testing "Example start/stop."
     (loop [cnt 3
            system contrived-system]
-      (let [started (pendel/start system #{:producer})]
+      (let [started (compost/start system #{:producer})]
         (is (= (-> (maps/key-set contrived-system) (disj :unused))
               (keys-by-status started :started)))
         (is (= #{:unused} (keys-by-status started :stopped)))
         (Thread/sleep 100)
-        (let [stopped (pendel/stop started)]
+        (let [stopped (compost/stop started)]
           (is (= (maps/key-set contrived-system)
                 (keys-by-status stopped :stopped)))
           (let [received (<!! (get-in stopped [:consumer :this :received]))
@@ -111,24 +111,24 @@
     (let [s {:a {:start (fn [_this _deps]
                           (throw (Exception. "Cannot start this.")))}}]
       (try
-        (pendel/start s #{:a})
+        (compost/start s #{:a})
         (assert false)
         (catch ExceptionInfo ex
           (let [{system :system} (ex-data ex)]
-            (is (= (pendel/normalize-system s) system)) ;;; Not changed
-            (is (= system (pendel/stop system)))))))
+            (is (= (compost/normalize-system s) system)) ;;; Not changed
+            (is (= system (compost/stop system)))))))
     (let [s {:a {}
              :b {:requires #{:a}
                  :start    (fn [_this _deps]
                              (throw (Exception. "Cannot start this.")))}}]
       (try
-        (pendel/start s #{:b})
+        (compost/start s #{:b})
         (assert false)
         (catch ExceptionInfo ex
           (let [{system :system} (ex-data ex)]
             (is (= {:started #{:a} :stopped #{:b}}
                   (component-statuses system)))
-            (let [stopped (pendel/stop system)]
+            (let [stopped (compost/stop system)]
               (is (= {:stopped #{:a :b}}
                     (component-statuses stopped))))))))))
 
@@ -137,19 +137,19 @@
     (let [s {:a {}
              :b {:requires #{:a}}
              :c {:requires #{:b}}}
-          s1 (pendel/start s #{:c})
+          s1 (compost/start s #{:c})
           _ (is (= {:started #{:a :b :c}}
                   (component-statuses s1)))
-          s2 (pendel/stop s1)
+          s2 (compost/stop s1)
           _ (is (= {:stopped #{:a :b :c}}
                   (component-statuses s2)))
-          s3 (pendel/start s2)
+          s3 (compost/start s2)
           _ (is (= {:started #{:a :b :c}}
                   (component-statuses s1)))
-          s4 (pendel/stop s3 #{:b})
+          s4 (compost/stop s3 #{:b})
           _ (is (= {:started #{:a} :stopped #{:b :c}}
                   (component-statuses s4)))
-          s5 (pendel/start s4 #{:c})
+          s5 (compost/start s4 #{:c})
           _ (is (= {:started #{:a :b :c}}
                   (component-statuses s5)))]
       s5)) ;; For eastwood
@@ -157,19 +157,19 @@
     (let [s {:a {}
              :b {}
              :c {}}
-          s1 (pendel/start s)
+          s1 (compost/start s)
           _ (is (= {:started #{:a :b :c}}
                   (component-statuses s1)))
-          s2 (pendel/stop s1 #{:a})
+          s2 (compost/stop s1 #{:a})
           _ (is (= {:stopped #{:a} :started #{:b :c}}
                   (component-statuses s2)))
-          s3 (pendel/stop s2 #{:b})
+          s3 (compost/stop s2 #{:b})
           _ (is (= {:stopped #{:a :b} :started #{:c}}
                   (component-statuses s3)))
-          s4 (pendel/start s3 #{:a})
+          s4 (compost/start s3 #{:a})
           _ (is (= {:stopped #{:b} :started #{:a :c}}
                   (component-statuses s4)))
-          s5 (pendel/stop s4 #{:a :b})
+          s5 (compost/stop s4 #{:a :b})
           _ (is (= {:stopped #{:a :b} :started #{:c}}
                   (component-statuses s5)))]
       s5))) ;; For eastwood
