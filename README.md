@@ -10,6 +10,11 @@ Beta, you are welcome to try it.
 
 ## Usage
 
+Add this dependency to your project
+```
+  [net.readmarks/compost "0.1.0-SNAPSHOT"]
+```
+
 See tests for examples. Component declaration has form
 ```clojure
    {:requires #{:required-component-id-1 :required-component-id-2}}
