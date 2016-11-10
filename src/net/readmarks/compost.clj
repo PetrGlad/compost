@@ -1,10 +1,8 @@
 (ns net.readmarks.compost
   (:require [clojure.set :refer [subset? intersection union difference]]
             [clojure.data.priority-map :refer [priority-map-keyfn]]
-            [net.readmarks.common.maps :refer :all])
-  (:import (org.slf4j LoggerFactory)))
-
-(def log (LoggerFactory/getLogger (name (ns-name *ns*))))
+            [net.readmarks.common.maps :refer :all]
+            [clojure.tools.logging :as logging]))
 
 (def component-defaults
   {:requires #{}
@@ -25,7 +23,7 @@
 
 (defn all-reachable [deps required-ids]
   (let [check-ids #(require-ids deps (key-set deps) %)]
-    (.debug log "Resolving {} with {}" required-ids deps)
+    (logging/debugf "Resolving %s with %s" required-ids deps)
     (check-ids required-ids)
     (loop [result (select-keys deps required-ids)]
       (let [more-ids (difference (set (mapcat second result))
@@ -37,7 +35,7 @@
 
 (defn call-component [method-key co & args]
   {:pre [(get co method-key) (contains? co :this)]}
-  (.trace log "Invoking component method {} on {}" method-key co)
+  (logging/tracef "Invoking component method %s on %s" method-key co)
   (apply (get co method-key) (:this co) args))
 
 (defn start-component [co deps]
@@ -69,7 +67,7 @@
   [system dependencies update-component]
   (loop [result system
          queue (into (priority-map-keyfn count) dependencies)]
-    (.debug log "System update queue {}" queue)
+    (logging/debug "System update queue" queue)
     (if (seq queue)
       (let [[co-id deps] (peek queue)]
         (when-not (empty? deps)

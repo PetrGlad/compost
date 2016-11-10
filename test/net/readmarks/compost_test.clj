@@ -2,11 +2,9 @@
   (:require [clojure.test :refer :all]
             [net.readmarks.compost :as compost]
             [net.readmarks.common.maps :as maps]
-            [clojure.core.async :as async :refer [>!! <!! chan alt!! timeout]])
-  (:import (org.slf4j LoggerFactory)
-           (clojure.lang ExceptionInfo)))
-
-(def log (LoggerFactory/getLogger (name (ns-name *ns*))))
+            [clojure.core.async :as async :refer [>!! <!! chan alt!! timeout]]
+            [clojure.tools.logging :as logging])
+  (:import (clojure.lang ExceptionInfo)))
 
 (def contrived-system
   {:component-a {:this 12} ;;; Taking tech to the limits...
@@ -25,7 +23,7 @@
                                                 (let [state (alt!!
                                                               [sink] ([x] x)
                                                               [stop] :stop)]
-                                                  (.trace log "Got {}" state)
+                                                  (logging/trace "Got" state)
                                                   (if (= :stop state)
                                                     received
                                                     (recur (conj received state))))))]
@@ -37,7 +35,7 @@
    :producer    {:requires #{:consumer}
                  :start    (fn [_this {consumer :consumer}]
                              (assert consumer)
-                             (.debug log "Consumer {} " consumer)
+                             (logging/debug "Consumer" consumer)
                              (let [stop (chan)
                                    sent (async/thread
                                           (loop [k 0
@@ -47,7 +45,7 @@
                                                           [[consumer k]] :put
                                                           [(timeout 2000)] :timeout
                                                           [stop] :stop)]
-                                              (.trace log "State {}, k {}" state k)
+                                              (logging/tracef "State %s, k %s" state k)
                                               (case state
                                                 :stop sent
                                                 :put (recur
