@@ -71,21 +71,23 @@ You can adapt existing components as follows:
           [:conn-source])}
 ```
 
+Note that unlike stuartsierra.component sequence of `n.r.compost/stop` might differ from reverse startup one.
+Only explicitly declared dependencies are respected. If you need to account for implicit dependencies 
+you can add additional elements to components' `:require` collections.
+
 ## Motivation
 
 I like what com.stuartsierra.component provides but I also want
 * Use any value as component. E.g. often I want a function closure to be a component. 
   Or, alternatively, a component be visible as a function. Besides this, I do not like the idea of  
   always keeping dependency reference even though it might be needed only in start function. 
-* Do not require a new type for each component. Requirement to implement Lifecycle often
-  gets in the way when you only need an ad-hock component. Also requirement for component 
-  to be a map and implement LifeCycle effectively requires component to be a record. 
+* Do not require a new type for each component. Implementing `Lifecycle`
+  gets in the way when you only need an ad hoc component. Also requirement for component 
+  to be a map and implement LifeCycle effectively restricts component to be a record. 
   This also means that sometimes people resort to work-arounds to avoid creating new types.
 * Use plain Clojure data structures to configure system. I think that putting configuration into metadata
-  was a mistake. Instead of streamlining it actually complicates code. With this approach, it's not 
-  clear for reader what happens when you configure system and why it requires helper functions to do that.
-* Provide default cleanup procedure. This is rather an opinion part. I want a default procedure 
-  that tries to stop system in case of partial start.
+  was a mistake. Instead of streamlining it actually complicates code. System configuration is also data 
+  that one might want to inspect or modify. Give it equal rights :)
 * Be compatible with com.stuartsierra.component/Lifecycle components. 
   There are already lots of such components and this is a good thing. 
   This part should require only small amount of glue code.
