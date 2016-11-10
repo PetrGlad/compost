@@ -8,7 +8,7 @@
 (defn key-set [m]
   (set (keys m)))
 
-(defn ensure-key [m k]
+(defn- ensure-key [m k]
   (update m k #(if % % #{})))
 
 (defn add-assoc [m k v]
