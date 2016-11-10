@@ -18,7 +18,8 @@
 (defn- require-ids [deps all-ids ids]
   (when-let [missing (seq (difference ids all-ids))]
     (throw (ex-info (str "Unknown component ids " (pr-str missing))
-             {:dependencies deps
+             {:type         ::error
+              :dependencies deps
               :unknown-ids  missing}))))
 
 (defn all-reachable [deps required-ids]
@@ -55,7 +56,8 @@
     (doseq [[k co] system]
       (when-let [unknown-fields (seq (difference (key-set co) allowed-keys))]
         (throw (ex-info "Unknown component field."
-                 {:component-id   k
+                 {:type           ::error
+                  :component-id   k
                   :component      co
                   :unknown-fields unknown-fields})))))
   (map-vals #(merge component-defaults %) system))
@@ -72,7 +74,8 @@
       (let [[co-id deps] (peek queue)]
         (when-not (empty? deps)
           (throw (ex-info "Dependency cycle."
-                   {:system result
+                   {:type   ::error
+                    :system result
                     :queue  queue})))
         (recur
           (update result co-id
@@ -81,7 +84,8 @@
                 (update-component result co)
                 (catch Exception ex
                   (throw (ex-info "Cannot update component"
-                           {:system    result
+                           {:type      ::error
+                            :system    result
                             :component co
                             :queue     queue}
                            ex))))))

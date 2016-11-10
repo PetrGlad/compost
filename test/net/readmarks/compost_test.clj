@@ -112,7 +112,8 @@
         (compost/start s #{:a})
         (assert false)
         (catch ExceptionInfo ex
-          (let [{system :system} (ex-data ex)]
+          (let [{system :system ex-type :type} (ex-data ex)]
+            (is (= :net.readmarks.compost/error ex-type))
             (is (= (compost/normalize-system s) system)) ;;; Not changed
             (is (= system (compost/stop system)))))))
     (let [s {:a {}
@@ -123,7 +124,8 @@
         (compost/start s #{:b})
         (assert false)
         (catch ExceptionInfo ex
-          (let [{system :system} (ex-data ex)]
+          (let [{system :system ex-type :type} (ex-data ex)]
+            (is (= :net.readmarks.compost/error ex-type))
             (is (= {:started #{:a} :stopped #{:b}}
                   (component-statuses system)))
             (let [stopped (compost/stop system)]
