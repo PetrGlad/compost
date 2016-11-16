@@ -49,7 +49,7 @@ Lifecycle usage example
    (compost/stop s))
 ```
 
-### Using stuartsierra.component components
+### Using com.stuartsierra.component components
 
 You can adapt existing components as follows:
 
@@ -71,7 +71,7 @@ You can adapt existing components as follows:
           [:conn-source])}
 ```
 
-Note that unlike stuartsierra.component sequence of `n.r.compost/stop` might differ from reverse startup one.
+Note that unlike com.stuartsierra.component sequence of `n.r.compost/stop` might differ from reverse startup one.
 Only explicitly declared dependencies are respected. If you need to account for implicit dependencies 
 you can add additional elements to components' `:require` collections.
 
@@ -79,7 +79,7 @@ you can add additional elements to components' `:require` collections.
 
 I like what com.stuartsierra.component provides but I also want
 * Use any value as component. E.g. often I want a function closure to be a component. 
-  Or, alternatively, a component be visible as a function. Besides this, I do not like the idea of  
+  Or, alternatively, a component be visible as a function. Besides this, I do not like the idea of
   always keeping dependency reference even though it might be needed only in start function. 
 * Do not require a new type for each component. Implementing `Lifecycle`
   gets in the way when you only need an ad hoc component. Also requirement for component 
