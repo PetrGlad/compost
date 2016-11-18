@@ -21,7 +21,7 @@
                                    received (async/thread
                                               (loop [received #{}]
                                                 (let [state (alt!!
-                                                              [sink] ([x] x)
+                                                              [sink] ([v _] v)
                                                               [stop] :stop)]
                                                   (logging/trace "Got" state)
                                                   (if (= :stop state)
