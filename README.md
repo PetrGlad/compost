@@ -12,7 +12,7 @@ Beta, you are welcome to try it.
 
 Add this dependency to your project
 ```
-  [net.readmarks/compost "0.1.0-SNAPSHOT"]
+  [net.readmarks/compost "0.1.0"]
 ```
 
 See tests for examples. Component declaration has form
