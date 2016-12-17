@@ -33,7 +33,7 @@ All fields are optional, defaults are:
 ```
 `:start` and `:stop` functions should return new value of component's `:this`.
 If component acquires resources in `:start` it must release them in `:stop`. 
-If `:stop` function is present then it must handle gracefully `(stop (stop component))` case.
+If `:stop` function is present then it should handle gracefully `(stop (stop component))` case.
 System declaration is a plain map
 ```clojure
   {:component-1-id component-1-declaration
