@@ -40,12 +40,16 @@
   (apply (get co method-key) (:this co) args))
 
 (defn start-component [co deps]
-  (assoc co :this (call-component :start co deps)
-            :status :started))
+  (if (= :started (:status co))
+    co
+    (assoc co :this (call-component :start co deps)
+              :status :started)))
 
 (defn stop-component [co]
-  (assoc co :this (call-component :stop co)
-            :status :stopped))
+  (if (= :stopped (:status co))
+    co
+    (assoc co :this (call-component :stop co)
+              :status :stopped)))
 
 (defn get-component [co]
   {:pre [(= :started (:status co))]}
