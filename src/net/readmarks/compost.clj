@@ -1,8 +1,10 @@
 (ns net.readmarks.compost
+  "System lifecycle and dependency graph implementation."
   (:require [clojure.set :refer [subset? intersection union difference]]
             [clojure.data.priority-map :refer [priority-map-keyfn]]
             [net.readmarks.common.maps :refer :all]
-            [clojure.tools.logging :as logging]))
+            [clojure.tools.logging :as logging])
+  (:import (clojure.lang IExceptionInfo ExceptionInfo)))
 
 (def component-defaults
   {:requires #{}
@@ -67,9 +69,9 @@
   (map-vals #(merge component-defaults %) system))
 
 (defn update-system
-  "Updates the system by applying function to components while ensuring given dependencies.
+  "Updates the system by applying function to components while ensuring required dependencies are provided.
    In case of errors throws ExceptionInfo with :system key containing current system,
-   and failed :component (if relevant)."
+   and failed :component-id (if relevant)."
   [system dependencies update-component]
   (loop [result system
          queue (into (priority-map-keyfn count) dependencies)]
@@ -90,14 +92,16 @@
                   (throw (ex-info "Cannot update component"
                            {:type      ::error
                             :system    result
-                            :component co
+                            :component-id co-id
                             :queue     queue}
                            ex))))))
           (map-vals #(disj % co-id) (pop queue))))
       result)))
 
 (defn start
-  "Starts the system."
+  "Starts the system. If collection of comport ids is provided then
+   only identified components are stated (including requirements).
+   If no component ids are provided all stopped components are started."
   ([system]
    (start system (key-set system)))
   ([system required-ids]
@@ -112,7 +116,9 @@
              (select-keys sys (:requires co)))))))))
 
 (defn stop
-  "Stops the system."
+  "Stops the system. If collection of comport ids is provided then
+  only identified components and their dependents are stopped.
+  If no component ids are provided then all started components are stopped."
   ([system]
    (stop system (key-set system)))
   ([system stop-ids]
@@ -123,3 +129,12 @@
      (update-system system queue
        (fn [_sys co]
          (stop-component co))))))
+
+(defn ex-system
+  "Analogous to clojure.core/ex-data. Returns system value if it's contained in
+   the exception data, nil otherwise."
+  [exception]
+  (when-let [data (ex-data exception)]
+    (let [{system :system ex-type :type} data]
+      (when (= :net.readmarks.compost/error ex-type)
+        system))))

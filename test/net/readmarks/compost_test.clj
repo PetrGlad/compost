@@ -152,7 +152,7 @@
           s5 (compost/start s4 #{:c})
           _ (is (= {:started #{:a :b :c}}
                   (component-statuses s5)))]
-      s5)) ;; For eastwood
+      s5)) ;;; For linters
   (testing "Partial start/stop disjoined"
     (let [s {:a {}
              :b {}
@@ -172,4 +172,4 @@
           s5 (compost/stop s4 #{:a :b})
           _ (is (= {:stopped #{:a :b} :started #{:c}}
                   (component-statuses s5)))]
-      s5))) ;; For eastwood
+      s5))) ;;; For linters
