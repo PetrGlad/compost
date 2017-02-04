@@ -1,4 +1,4 @@
-(ns net.readmarks.compost.ext
+(ns net.readmarks.compost.keeper
   "System lifecycle errors handling."
   (:require [net.readmarks.compost :as compost])
   (:import (clojure.lang ExceptionInfo)))
@@ -15,6 +15,7 @@
                  system)
        :errors [ex]})
     (catch Exception ex
+      ;; Warrany is void :) The system and agent may need to be re-created.
       {:system system
        :errors [ex]})))
 
@@ -30,8 +31,6 @@
      :errors (into prev-exs exs)}))
 
 (defn keeper [system]
-  ;; TODO (correctness) Hanlde unprocessed exceptions (what to do when we do not have system in exception?)
-  ;; The agent may need restart if we do not handle all exeption. That might be OK.
   (agent (init system)))
 
 (defn update-keeper! [k update-fn]
