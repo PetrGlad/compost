@@ -1,4 +1,4 @@
-(defproject net.readmarks/compost "0.1.0"
+(defproject net.readmarks/compost "0.2.0"
   :description "Manage lifecycle of stateful components"
   :url "https://github.com/PetrGlad/compost"
   :license {:name "Eclipse Public License"
