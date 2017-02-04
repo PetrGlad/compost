@@ -43,9 +43,43 @@ System declaration is a plain map
 
 Lifecycle usage example
 ```clojure
+ (require '[net.readmarks.compost :as compost])
  (let [s (compost/start system-map #{:web-component :some-worker-component})]
    (Thread/sleep 5000)
    (compost/stop s))
+```
+
+You can salvage current system state after exception as follows:
+```clojure
+ (try
+   (compost/start system-map)
+   (catch ExceptionInfo ex
+     (if-let [sys (compost/ex-system ex)]
+       (compost/stop sys) ;;; Handle this system as desired here.
+       (throw ex))))
+```
+
+### Error handling helpers
+
+This feature is implemented by net.readmarks.compost.keeper namespace.
+This namespace is considered experimental, it's contents might change in any version.
+
+The agent ("keeper") holds current state of system along with lifecycle's exceptions.
+The usage example:
+
+```clojure
+ (require '[net.readmarks.compost :as compost])
+ (require '[net.readmarks.compost.keeper :as keeper])
+
+ (def sys (keeper/keeper system-map))
+
+ (keeper/update-keeper! sys compost/start)
+ ;; Now sys holds current system value and errors if there are any.
+ ;; (:system @sys) is current system map value.
+ ;; (:errors @sys) is list of of system lifecycle errors. It is empty if system changes were successful.
+
+ ;; You can send these errors into a log, for example:
+ (keeper/flush-errors! sys println) ;; The function gets errors one by one.
 ```
 
 ### Using com.stuartsierra.component components
@@ -72,7 +106,7 @@ You can adapt existing components as follows:
 
 Note that unlike com.stuartsierra.component sequence of `n.r.compost/stop` might differ from reverse startup one.
 Only explicitly declared dependencies are respected. If you need to account for implicit dependencies 
-you can add additional elements to components' `:require` collections.
+you should add additional elements to components' `:require` collections.
 
 ## Motivation
 
