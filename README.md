@@ -4,10 +4,6 @@ Library that manages lifecycle of stateful components.
 This is a variation of https://github.com/stuartsierra/component project's idea.
 At the moment this library does not support ClojureScript.
 
-## Status
-
-Beta, you are welcome to try it. 
-
 ## Usage
 
 Add this dependency to your project
