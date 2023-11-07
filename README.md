@@ -106,7 +106,7 @@ you should add additional elements to components' `:require` collections.
 
 ## Motivation
 
-I like what com.stuartsierra.component provides but I also want
+I like what [component](https://github.com/stuartsierra/component) provides but I also want
 * Use any value as component. E.g. often I want a function closure to be a component. 
   Or, alternatively, a component be visible as a function. Besides this, I do not like the idea of
   always keeping dependency reference even though it might be needed only in start function. 
